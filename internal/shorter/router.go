@@ -6,6 +6,7 @@ import "github.com/go-chi/chi/v5"
 func (s *Service) Routes(r chi.Router) {
 	r.Route("/", func(r chi.Router) {
 		r.Post("/set", s.Short)
+		r.Get("/analytics", s.Analytics)
 		r.Get("/{hash}", s.Transition)
 	})
 }

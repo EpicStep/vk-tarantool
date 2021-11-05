@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"github.com/EpicStep/vk-tarantool/internal/shorter/model"
 	"github.com/EpicStep/vk-tarantool/pkg/database"
 	"github.com/tarantool/go-tarantool"
@@ -8,6 +9,8 @@ import (
 
 const SpaceShort = "short"
 const SpaceAnalytics = "transitions"
+
+var ErrNotFound = errors.New("element not found")
 
 type ShorterDB struct {
 	db *database.DB
@@ -43,10 +46,20 @@ func (db *ShorterDB) InsertAnalytics(t *model.Transition) error {
 	return nil
 }
 
-func (db *ShorterDB) GetTransitionByShort(short string, limit, offset uint32) ([]model.Transition, error) {
+func (db *ShorterDB) GetTransitionByShort(short string) ([]model.Transition, error) {
 	var s []model.Transition
 
-	err := db.db.DB.SelectTyped(SpaceAnalytics, "", offset, limit, tarantool.IterEq, tarantool.StringKey{S: short}, &s)
+	var i []int64
+	err := db.db.DB.EvalTyped("return box.space." + SpaceAnalytics + ":count()", []interface{}{}, &i)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(i) <= 0 {
+		return nil, ErrNotFound
+	}
+
+	err = db.db.DB.SelectTyped(SpaceAnalytics, "shorted_idx", 0, uint32(i[0]), tarantool.IterEq, tarantool.StringKey{S: short}, &s)
 	if err != nil {
 		return nil, err
 	}
