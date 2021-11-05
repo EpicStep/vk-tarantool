@@ -48,7 +48,7 @@ func (s *Service) Short(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
-	w.Write([]byte("http://localhost:8182/" + ub64[0:12]))
+	w.Write([]byte("http://37.139.34.190/" + ub64[0:12]))
 }
 
 func (s *Service) Transition(w http.ResponseWriter, r *http.Request) {
