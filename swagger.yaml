@@ -1,0 +1,115 @@
+openapi: 3.0.3
+info:
+  title: URL shortener
+  description: URL shortener based on Go + Tarantool DB
+  version: 1.0.0
+servers:
+  - url: 'https://localhost:8182'
+tags:
+  - name: shortener
+    description: short/get URLs
+
+  - name: analytics
+    description: shows visitors user-agents, OS and browsers
+paths:
+  /set:
+    post:
+      summary: shorting link that came in query parameter and returns it shorted version
+      tags:
+        - shortener
+      parameters:
+        - in: query
+          name: url
+          description: url to short
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: returns hash of shortened URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shortened'
+        400:
+          description: required query parameter "url" isn't set
+        500:
+          description: internal error
+  /{hash}:
+    get:
+      summary: redirect to original location of shortened link by it's hash
+      tags:
+        - shortener
+      parameters:
+        - name: hash
+          in: path
+          description: hash of shortned link
+          required: true
+          schema:
+            type: string
+      responses:
+        301:
+          description: Redirect as expected
+        400:
+          description: required parameter "hash" isn't set
+        404:
+          description: shortned link for given hash doesn't exists
+        500:
+          description: internal error
+  /analytics:
+    get:
+      summary: get analytics for given hash
+      tags:
+        - analytics
+      parameters:
+        - name: url
+          in: query
+          description: hash of shortened link
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: analytics for given hash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+        404:
+          description: shortned link by given hash doesn't exists
+        500:
+          description: internal error
+
+components:
+  schemas:
+    Shortened:
+      type: object
+      properties:
+        shorted:
+          type: string
+          description: shortened URL
+          example: http://localhost:8182/MDdmMmNiZjcy
+    Analytics:
+      type: object
+      properties:
+        response:
+          type: object
+          properties:
+            views:
+              type: integer
+              description: count of views
+              example: 1
+            os:
+              type: object
+              description: show OS of visitor
+              additionalProperties:
+                type: string
+              example:
+                macOS: 1
+            browser:
+              type: object
+              description: show browser of visitor
+              additionalProperties:
+                type: string
+              example:
+                Safari: 1
