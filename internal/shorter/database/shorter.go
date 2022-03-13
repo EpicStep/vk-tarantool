@@ -37,6 +37,10 @@ func (db *ShorterDB) GetShortByHash(hash string) ([]model.Short, error) {
 		return nil, err
 	}
 
+	if len(s) <= 0 {
+		return nil, ErrNotFound
+	}
+
 	return s, nil
 }
 
@@ -50,7 +54,7 @@ func (db *ShorterDB) GetTransitionByShort(short string) ([]model.Transition, err
 	var s []model.Transition
 
 	var i []int64
-	err := db.db.DB.EvalTyped("return box.space." + SpaceAnalytics + ":count()", []interface{}{}, &i)
+	err := db.db.DB.EvalTyped("return box.space."+SpaceAnalytics+":count()", []interface{}{}, &i)
 	if err != nil {
 		return nil, err
 	}
