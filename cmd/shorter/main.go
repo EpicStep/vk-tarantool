@@ -9,6 +9,7 @@ import (
 	"github.com/EpicStep/vk-tarantool/pkg/database"
 	"github.com/EpicStep/vk-tarantool/pkg/server"
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"os"
@@ -23,10 +24,12 @@ func main() {
 }
 
 func run() error {
+	log.Println("Service started")
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 
-	db, err := database.New("127.0.0.1:3301", "", "")
+	db, err := database.New("127.0.0.1:3301", "guest", "")
 	if err != nil {
 		return err
 	}
@@ -40,14 +43,13 @@ func run() error {
 		return err
 	}
 
-	//r.Handle("/*", http.FileServer(http.FS(front)))
-
 	r.Route("/", func(r chi.Router) {
+		r.Handle("/metrics", promhttp.Handler())
 		r.Handle("/ui/*", http.FileServer(http.FS(front)))
 		service.Routes(r)
 	})
 
-	addr := ":" + "8182"
+	addr := ":80"
 
 	srv := server.New(addr, r)
 
