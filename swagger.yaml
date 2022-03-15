@@ -4,7 +4,7 @@ info:
   description: URL shortener based on Go + Tarantool DB
   version: 1.0.0
 servers:
-  - url: 'https://localhost:8182'
+  - url: 'https://localhost:8182/api/v1'
 tags:
   - name: shortener
     description: short/get URLs
@@ -33,6 +33,8 @@ paths:
                 $ref: '#/components/schemas/Shortened'
         400:
           description: required query parameter "url" isn't set
+        409:
+          description: record already exists
         500:
           description: internal error
   /{hash}:
