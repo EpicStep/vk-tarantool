@@ -16,7 +16,13 @@ tarantool/tarantool:2.6.0
 ⚠️ `if run on ARM - then use version 2.10.0-beta1`
 
 2) Enter in container with docker exec
-3) Create schemas:
+3) Open port outside
+```code
+box.cfg {
+    listen = 3301;
+} 
+```
+4) Create schemas:
 ```code
 s = box.schema.space.create('short')
 
@@ -68,15 +74,19 @@ Send http requests below to deployed version of service at address:
 <a name="endpoints"></a>
 1) Set endpoint
 ```code
-/set?url=http://vk.com/ac
+/api/v1/set?url=http://vk.com/ac
 ```
 ⚠️ URL must be with scheme (http:// or https://)
 
 2) Get endpoint
 ```code
-/{hash_from_previous_request}
+/api/v1/{hash_from_previous_request}
 ```
 
 ### Analytics
 <a name="analytics"></a>
 Analytics is available from web UI after creating first short link
+
+```code
+/api/v1/analytics?hash=xxx
+```
