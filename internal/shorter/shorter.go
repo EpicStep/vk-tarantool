@@ -14,7 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-	"log"
+	"go.opentelemetry.io/otel/trace"
 	"net/http"
 	"strings"
 )
@@ -22,19 +22,25 @@ import (
 type Service struct {
 	db      *shortDB.ShorterDB
 	metrics *metrics.PrometheusService
+	tracer  trace.Tracer
 }
 
-func New(db *database.DB) *Service {
+func New(db *database.DB, tr trace.Tracer) *Service {
 	return &Service{
 		db:      shortDB.New(db),
 		metrics: metrics.NewPrometheusService(),
+		tracer:  tr,
 	}
 }
 
 func (s *Service) Short(w http.ResponseWriter, r *http.Request) {
+	spanCtx, span := s.tracer.Start(r.Context(), "http.api.short")
+	defer span.End()
+
 	url := r.URL.Query().Get("url")
 
 	if url == "" {
+		span.End()
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -48,14 +54,21 @@ func (s *Service) Short(w http.ResponseWriter, r *http.Request) {
 
 	ipArr := strings.Split(r.RemoteAddr, ":")
 
-	err := s.db.CreateShort(&model.Short{
+	err := s.db.CreateShort(spanCtx, &model.Short{
 		Shorted:   ub64[0:12],
 		Original:  url,
 		CreatedBy: ipArr[0],
 	})
-
 	if err != nil {
-		log.Println(err)
+		if errors.Is(err, shortDB.ErrAlreadyExists) {
+			span.RecordError(err)
+			span.End()
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+
+		span.RecordError(err)
+		span.End()
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -71,28 +84,33 @@ func (s *Service) Short(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) Transition(w http.ResponseWriter, r *http.Request) {
+	spanCtx, span := s.tracer.Start(r.Context(), "http.api.transition")
+	defer span.End()
+
 	hash := chi.URLParam(r, "hash")
 
 	if hash == "" {
+		span.End()
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	short, err := s.db.GetShortByHash(hash)
+	short, err := s.db.GetShortByHash(spanCtx, hash)
 	if err != nil {
 		if errors.Is(err, shortDB.ErrNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		log.Println(err)
+		span.RecordError(err)
+		span.End()
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	ipArr := strings.Split(r.RemoteAddr, ":")
 
-	err = s.db.InsertAnalytics(&model.Transition{
+	err = s.db.InsertAnalytics(spanCtx, &model.Transition{
 		ID:      uuid.New().String(),
 		Shorted: hash,
 		IP:      ipArr[0],
@@ -100,7 +118,8 @@ func (s *Service) Transition(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		log.Println(err)
+		span.RecordError(err)
+		span.End()
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

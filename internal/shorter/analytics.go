@@ -6,26 +6,32 @@ import (
 	"github.com/EpicStep/vk-tarantool/internal/shorter/database"
 	v1 "github.com/EpicStep/vk-tarantool/pkg/api/v1"
 	ua "github.com/mileusna/useragent"
-	"log"
 	"net/http"
 )
 
 func (s *Service) Analytics(w http.ResponseWriter, r *http.Request) {
+	spanCtx, span := s.tracer.Start(r.Context(), "http.api.analytics")
+	defer span.End()
+
 	hash := r.URL.Query().Get("hash")
 
 	if hash == "" {
+		span.End()
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	t, err := s.db.GetTransitionByShort(hash)
+	t, err := s.db.GetTransitionByShort(spanCtx, hash)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
+			span.End()
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		log.Println(err)
+		span.RecordError(err)
+		span.End()
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
